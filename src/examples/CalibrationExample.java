@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import alg.np.BrowsedItemRecommender;
 import util.reader.DatasetReader;
@@ -18,15 +19,23 @@ import util.Item;
 
 public class CalibrationExample {
 
+	static Map<Integer, Map<String, Double> > pi = new HashMap<>();
+
+	static String folder = "datasets";
+	static String dataset = folder + File.separator + "ml20m";
+	// set the path and filename of the output file ...
+
+	static DatasetReader reader = new DatasetReader(dataset);
+	static BrowsedItemRecommender alg;
+
+	public CalibrationExample() {
+
+	}
+
 	public static void main(String[] args)
-	{		
+	{
 		// set the path of the dataset
-		String folder = "datasets";
-		String dataset = folder + File.separator + "ml20m";
-		// set the path and filename of the output file ...
-
-		DatasetReader reader = new DatasetReader(dataset);
-
+		pi = getItemGenreProbabilityMap(reader, pi);
 		getCalibrationMap(reader);
 	}
 
@@ -48,23 +57,34 @@ public class CalibrationExample {
 
 		// 2. A recommender that returns the items most similar to the
 		//    the chosen item
-		BrowsedItemRecommender alg = new
+		alg = new
 				BrowsedItemRecommender(reader,browsedItemId,simMap);
 
 		// Create a Map that will hold a set of probabilities p(g|i)
 		// associated with each item in the system, map<itemId, map<genre, probability> >
 
-		Map<Integer, Map<String, Double> > pi = new HashMap<>();
-		pi = getItemGenreProbabilityMap(reader, pi);
-
 		// A Map to hold the probabilities p(g|u) of movies played by each user in the past.
-		Map<Integer, Map<String, Double> > pu = new HashMap<>();
+		Map<Integer, Map<String, Double> > pu = getPUMap(reader, pi);
 		// A Map to hold the probabilities q(g|u) of recommended movies associated with each user
-		Map<Integer, Map<String, Double> > qu = new HashMap<>();
+		Map<Integer, Map<String, Double> > qu = getQUMap(reader, pi, alg);
 
-		// Loop over all users
+
+		Map<Integer, Double> userCalibrationScore = new HashMap<>(); 	// calculates CL score for each user
 		for (int userId : reader.getUserIds()) {
+			Double klScore = getUserCalibrationScore(reader, pu, qu, userId);
+			userCalibrationScore.put(userId, klScore);
+			System.out.println("User: "+userId + ": \t has kl calibration = " + klScore);
+			System.out.println("--------------------------------");
+		}
 
+		return userCalibrationScore;
+	}
+
+	// Gets probabilities p(g|u) of movies played by each user in the past.
+	private static Map<Integer, Map<String, Double>> getPUMap(DatasetReader reader, Map<Integer, Map<String, Double>> pi) {
+		Map<Integer, Map<String, Double>> pu = new HashMap<>();
+
+		for (int userId : reader.getUserIds()) {
 			// get the user's profile - i.e. set of items that user has interacted with
 			// reader.getUserProfiles() returns userProfileMap<Integer, Profile>
 			// profile consists of {ID, dataMap <itemID, value> }
@@ -74,54 +94,24 @@ public class CalibrationExample {
 			// set p(g|u) to the sum of p(g|i) over all items that the user
 			// has interacted with, divided by the total number of items store result in usergenreMap;
 
-
 			Map<String, Double> usergenreMap = new HashMap<>(); 	// stores p(g|u) of each user
 			updateUserInteractedGenreMap(uProf, pi, usergenreMap);
 			// user , <genre of played items, probability of genre across played items>
 			pu.put(userId, usergenreMap);
+		}
 
-			///////////////////////////////////////
+		return pu;
+	}
 
+	private static Map<Integer, Map<String, Double>> getQUMap(DatasetReader reader, Map<Integer, Map<String, Double>> pi, BrowsedItemRecommender alg) {
+		Map<Integer, Map<String, Double>> qu = new HashMap<>();
+		for (int userId : reader.getUserIds()) {
 			// Run the recommendation algorithm to get the items recommended to the user
-			Map<String, Double> userRecGenreMap = new HashMap<>();
-			updateUserRecommendedGenreMap(userId, alg, userRecGenreMap, pi);
+			List<Integer> recItems = alg.getRecommendations(userId);
+			Map<String, Double> userRecGenreMap = updateUserRecommendedGenreMap(recItems, pi);
 			qu.put(userId, userRecGenreMap);
 		}
-
-
-		Map<Integer, Double> userCalibrationScore = new HashMap<>();
-		for (int userId : reader.getUserIds()) {
-//			System.out.println("User "+userId);
-			Map<String,Double> pu_g = pu.get(userId);
-			Map<String,Double> qu_g = qu.get(userId);
-
-			// 	 Calibration calculation
-			Double klScore = 0.0;
-			double p, q;
-
-			for (String genre : getGenres(reader)) {
-				if (pu_g.containsKey(genre))
-					p = pu_g.get(genre);
-				else
-					p = 0.0;
-
-				if (qu_g.containsKey(genre))
-					q = qu_g.get(genre);
-				else
-					q = 0.0;
-
-				if (q == 0) {
-					q = deltaQ(pu_g, qu_g, genre);
-				}
-
-				klScore += (p * (Math.log(p/q)) > 0 || p * (Math.log(p/q)) < 0) ? (p * (Math.log(p/q))) : 0;
-
-			}
-			userCalibrationScore.put(userId, klScore);
-//			System.out.println("User: "+userId + ": \t has kl calibration = " + klScore);
-//			System.out.println("--------------------------------");
-		}
-		return userCalibrationScore;
+		return qu;
 	}
 
 	// associated with each item in the system, map<itemId, map<genre, probability> >
@@ -172,10 +162,8 @@ public class CalibrationExample {
 		}
 	}
 
-	private static void updateUserRecommendedGenreMap(int userId, BrowsedItemRecommender alg,
-												  Map<String, Double> userRecGenreMap, Map<Integer, Map<String, Double> > pi) {
-		List<Integer> recItems = alg.getRecommendations(userId);
-
+	private static Map<String, Double> updateUserRecommendedGenreMap(List<Integer> recItems, Map<Integer, Map<String, Double> > pi) {
+		Map<String, Double> userRecGenreMap = new HashMap<>();
 		int uProfLength = recItems.size();
 
 		// Loop over recommended items
@@ -196,8 +184,39 @@ public class CalibrationExample {
 				}
 			}
 		}
+		return userRecGenreMap;
 	}
 
+	private static double getUserCalibrationScore(DatasetReader reader, Map<Integer, Map<String, Double>> pu, Map<Integer, Map<String, Double>> qu, int userId) {
+//			System.out.println("User "+userId);
+			Map<String,Double> pu_g = pu.get(userId);
+			Map<String,Double> qu_g = qu.get(userId);
+
+			// 	 Calibration calculation
+			Double klScore = 0.0;
+			double p, q;
+
+			for (String genre : getGenres(reader)) {
+				if (pu_g.containsKey(genre))
+					p = pu_g.get(genre);
+				else
+					p = 0.0;
+
+				if (qu_g.containsKey(genre))
+					q = qu_g.get(genre);
+				else
+					q = 0.0;
+
+				if (q == 0) {
+					q = deltaQ(pu_g, qu_g, genre);
+				}
+
+				klScore += (p * (Math.log(p/q)) > 0 || p * (Math.log(p/q)) < 0) ? (p * (Math.log(p/q))) : 0;
+
+			}
+
+		return klScore;
+	}
 
 	public static double deltaQ(Map<String, Double> pu_g, Map<String, Double> qu_g, String genre) {
 		double deltaq;
@@ -206,7 +225,6 @@ public class CalibrationExample {
 
 		return deltaq;
 	}
-
 
 	// this should be a method in DatasetReader, but it hasn't been
 	// implemented - so let's just do it here
@@ -223,6 +241,48 @@ public class CalibrationExample {
 		}
 		return s;
 	}
+
+//	 Get the KL score for each subset combination of items.
+	public static double getCKL(Integer userId, List<Integer> rerankedList, Integer itemId) {
+		pi = getItemGenreProbabilityMap(reader, pi);
+		Map<String,Double> pu_g = getPUMap(reader, pi).get(userId);
+		rerankedList.add(itemId);
+		Map<String,Double> qu_g = updateUserRecommendedGenreMap(rerankedList, pi);
+
+		// 	 Calibration calculation
+		Double klScore = 0.0;
+		double p, q;
+
+		for (String genre : getGenres(reader)) {
+			if (pu_g.containsKey(genre)) {
+				p = pu_g.get(genre);
+			}
+			else {
+				System.out.println("Genre Not found in PU: " + genre);
+				p = 0.0;
+			}
+			if (qu_g.containsKey(genre)) {q = qu_g.get(genre);}
+			else {
+				q = 0.0;
+			}
+
+			if (q == 0) {
+				double pgu = (p == 0) ? 0 : pu_g.get(genre);
+				q = deltaQ2(pgu);
+			}
+			klScore += (p * (Math.log(p/q)) > 0 || p * (Math.log(p/q)) < 0) ? (p * (Math.log(p/q))) : 0;
+		}
+		return klScore;
+	}
+
+	public static double deltaQ2(double pgu) {
+		double deltaq;
+		double alpha = 0.01;
+		deltaq = alpha * pgu;
+
+		return deltaq;
+	}
+
 }
 
 
