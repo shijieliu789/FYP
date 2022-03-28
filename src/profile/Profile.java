@@ -31,6 +31,13 @@ public class Profile
 	}
 
 	/**
+	 * @returns the dataMap
+	 */
+	public Map<Integer, Double> getDataMap() {
+		return dataMap;
+	}
+
+	/**
 	 * @returns the profile ID
 	 */
 	public Integer getId() 

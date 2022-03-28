@@ -246,6 +246,7 @@ public class CalibrationExample {
 	public static double getCKL(Integer userId, List<Integer> rerankedList, Integer itemId) {
 		pi = getItemGenreProbabilityMap(reader, pi);
 		Map<String,Double> pu_g = getPUMap(reader, pi).get(userId);
+
 		rerankedList.add(itemId);
 		Map<String,Double> qu_g = updateUserRecommendedGenreMap(rerankedList, pi);
 
@@ -254,17 +255,9 @@ public class CalibrationExample {
 		double p, q;
 
 		for (String genre : getGenres(reader)) {
-			if (pu_g.containsKey(genre)) {
-				p = pu_g.get(genre);
-			}
-			else {
-				System.out.println("Genre Not found in PU: " + genre);
-				p = 0.0;
-			}
-			if (qu_g.containsKey(genre)) {q = qu_g.get(genre);}
-			else {
-				q = 0.0;
-			}
+			//				System.out.println("Genre Not found in PU: " + genre);
+			p = pu_g.getOrDefault(genre, 0.0);
+			q = qu_g.getOrDefault(genre, 0.0);
 
 			if (q == 0) {
 				double pgu = (p == 0) ? 0 : pu_g.get(genre);
@@ -272,6 +265,7 @@ public class CalibrationExample {
 			}
 			klScore += (p * (Math.log(p/q)) > 0 || p * (Math.log(p/q)) < 0) ? (p * (Math.log(p/q))) : 0;
 		}
+		rerankedList.remove(itemId);
 		return klScore;
 	}
 

@@ -3,6 +3,7 @@ package alg.rerank;
 import alg.np.BrowsedItemRecommender;
 import examples.CalibrationExample;
 import profile.Profile;
+import java.util.Collections;
 import similarity.SimilarityMap;
 import similarity.metric.SimilarityMetric;
 import similarity.metric.item.GenreMetric;
@@ -10,6 +11,7 @@ import util.ScoredThingDsc;
 
 import java.io.File;
 import java.util.*;
+import static java.util.stream.Collectors.*;
 import java.util.stream.Collectors;
 
 import util.Item;
@@ -36,6 +38,11 @@ public class CalibrationReranker implements Reranker
     // !!!
     public List<Integer> rerank(Profile userProfile,Profile scores)
     {
+
+        //get rid of callong baseline recommender.
+        //generate recitems list using scores profile.
+        // iterate through map and sort by value.
+
         // Profile userProfile: user interaction profile
         // ( userId, Map <recommendedMovieId, interactionScoreFromInputFile> )
 
@@ -56,34 +63,38 @@ public class CalibrationReranker implements Reranker
         // tradeoff
 
         // create a list to store recommendations
-        SimilarityMetric<Item> metric = new GenreMetric();
-        SimilarityMap<Item> simMap = new SimilarityMap<Item>(reader.getItems(),metric);
-        // Set up a recommendation algorithm
-        // 1.  choose a random item, say the 10th item in the set
-        Integer[] allItems = (Integer[])reader.getItemIds().
-                toArray(new Integer[reader.getUserIds().size()]);
-        Integer browsedItemId = allItems[10];
-        // 2. A recommender that returns the items most similar to
-        //    the chosen item
-        BrowsedItemRecommender alg = new
-                BrowsedItemRecommender(reader,browsedItemId,simMap);
 
-        List<Integer> rerankedList = new ArrayList<Integer>();
-        // Gets Top 50 recommended items.
-        List<Integer> recItems = alg.getRecommendations(userProfile.getId()).stream().limit(50).collect(Collectors.toList());
-        System.out.println("Reranked List size: " + rerankedList.size());
-        rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
-        System.out.println("Reranked List size: " + rerankedList.size());
-        recItems.remove(0);
+        //.entrySet().stream()
+        //            .sorted((o1, o2) -> o2.getValue() - o1.getValue())
+        //            .limit(10)
+        //            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
-        for (int i = 0; i < 2; i++) {
-            Integer bestRerankItemId = findHighestScoringItem(userProfile, rerankedList, recItems, scores);
-            System.out.println("Id: " + bestRerankItemId);
-            rerankedList.add(bestRerankItemId);
-            recItems.remove(bestRerankItemId);
-            System.out.println("Reranked List size: " + rerankedList.size() + " Original List size: " + recItems.size());
+        // sorts scores map and takes first 10 values
+
+        Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
+              .stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+              .collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
+                            LinkedHashMap::new));
+        List<Integer> recItems = new ArrayList<>(scoresMap.keySet().stream().limit(10).collect(Collectors.toList()));
+//        System.out.println("Size : " + recItems.size());
+        for (int i=0; i<5; i++) {
+            System.out.println("Item " + i + "has ID: " + recItems.get(i) + "has score: " + scoresMap.get(recItems.get(i)));
         }
 
+        List<Integer> rerankedList = new ArrayList<Integer>();
+        rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
+        recItems.remove(0);
+
+        while(rerankedList.size() < 5 && recItems.size() > 0) {
+            Integer bestRerankItemId = findHighestScoringItem(userProfile, rerankedList, recItems, scores);
+            if (!userProfile.contains(bestRerankItemId)){
+                System.out.println("Id: " + bestRerankItemId);
+                rerankedList.add(bestRerankItemId);
+                recItems.remove(bestRerankItemId);
+                System.out.println("Reranked List size: " + rerankedList.size() + " Original List size: " + recItems.size());
+            }
+            recItems.remove(bestRerankItemId);
+        }
 
 //        if (scores==null)
 //            return rerankedList;
@@ -127,7 +138,7 @@ public class CalibrationReranker implements Reranker
             }
             sI += scores.getValue(recItems.get(i));
             // NEED TO CALCULATE CL SCORES FOR DIFF COMBINATIONS OF items already in re-ranked list + each other item.
-            System.out.println("Passing item : " + recItems.get(i));
+//            System.out.println("Passing item : " + recItems.get(i));
             rerankedScore = lambda*sI - lambda * (CalibrationExample.getCKL(userProfile.getId(), rerankedList, recItems.get(i)));
             itemWithNewScoreMap.put(recItems.get(i), rerankedScore);
         }
