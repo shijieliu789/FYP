@@ -77,9 +77,9 @@ public class CalibrationReranker implements Reranker
                             LinkedHashMap::new));
         List<Integer> recItems = new ArrayList<>(scoresMap.keySet().stream().limit(10).collect(Collectors.toList()));
 //        System.out.println("Size : " + recItems.size());
-        for (int i=0; i<5; i++) {
-            System.out.println("Item " + i + "has ID: " + recItems.get(i) + "has score: " + scoresMap.get(recItems.get(i)));
-        }
+//        for (int i=0; i<5; i++) {
+//            System.out.println("Item " + i + "has ID: " + recItems.get(i) + "has score: " + scoresMap.get(recItems.get(i)));
+//        }
 
         List<Integer> rerankedList = new ArrayList<Integer>();
         rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
@@ -98,19 +98,16 @@ public class CalibrationReranker implements Reranker
 
 //        if (scores==null)
 //            return rerankedList;
-//
-//        // store all scores in descending order in a sorted set
+// store all scores in descending order in a sorted set
 //        double recScoreSum = 0;
 //        SortedSet<ScoredThingDsc> ss = new TreeSet<ScoredThingDsc>();
 //        for(Integer id: scores.getIds()) {
 //            double s = scores.getValue(id);
-//
 //            if (s>0) {
 //                ss.add(new ScoredThingDsc(s, id));
-//                recScoreSum += s;
 //            }
-//
 //        }
+
 
         // save all recommended items in descending order of similarity in the list
         // but leaving out items that are already in the user's profile

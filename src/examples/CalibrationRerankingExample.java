@@ -22,7 +22,7 @@ public class CalibrationRerankingExample {
 	{
 		// set the path of the dataset
 		String folder = "datasets";
-		String dataset = folder + File.separator + "ml100k";
+		String dataset = folder + File.separator + "ml20m";
 		// set the path and filename of the output file ...
 
 
