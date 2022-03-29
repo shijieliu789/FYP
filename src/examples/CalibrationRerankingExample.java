@@ -67,7 +67,7 @@ public class CalibrationRerankingExample {
 
 			RerankingRecommender rerankalg =
 					new RerankingRecommender(reader, alg,
-							new CalibrationReranker(lambda)); // replace with calibrationReranker
+							new CalibrationReranker(reader,lambda)); // replace with calibrationReranker
 
 			// Evaluate Recommender
 			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers);

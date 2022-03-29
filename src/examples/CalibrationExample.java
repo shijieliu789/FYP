@@ -255,9 +255,11 @@ public class CalibrationExample {
 		double p, q;
 
 		for (String genre : getGenres(reader)) {
-			//				System.out.println("Genre Not found in PU: " + genre);
+			System.out.println(genre);
+			System.out.println("Genre Not found in PU: " + genre);
 			p = pu_g.getOrDefault(genre, 0.0);
 			q = qu_g.getOrDefault(genre, 0.0);
+			System.out.println("P: " + p + "Q: " + q);
 
 			if (q == 0) {
 				double pgu = (p == 0) ? 0 : pu_g.get(genre);
