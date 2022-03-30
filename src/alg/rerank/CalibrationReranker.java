@@ -33,31 +33,11 @@ public class CalibrationReranker implements Reranker
     // !!!
     public List<Integer> rerank(Profile userProfile,Profile scores)
     {
-
-        //get rid of callong baseline recommender.
-        //generate recitems list using scores profile.
-        // iterate through map and sort by value.
-
-        // Profile userProfile: user interaction profile
-        // ( userId, Map <recommendedMovieId, interactionScoreFromInputFile> )
-
-        // Profile scores: profile of scores for each item
-        // (0, Map <recommendedMovieId, recommendationScore>)
-
-        // IMPLEMENT THE DIVERSIFICATION METHOD THAT
-        // re-ranks a set of items to maximise a tradeoff
-        // between accuracy and diversity as given by the parameter
-        // lambda
-
-        // BELOW IS THE CODE USED IN RECOMMENDER.JAVA to
-        // return a list of items according to their. This code is
-        // added here just to give you a working starting point.
-
-        // You should modify/replace this code with a code to
-        // that chooses the list according to the accuracy/diversity
-        // tradeoff
-
-        // create a list to store recommendations
+    	
+    	System.out.println("User: "+userProfile.getId());
+    	System.out.println("---------------------");
+    	
+    // create a list to store recommendations
 
         //.entrySet().stream()
         //            .sorted((o1, o2) -> o2.getValue() - o1.getValue())
@@ -65,78 +45,78 @@ public class CalibrationReranker implements Reranker
         //            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
         // sorts scores map and takes first 10 values
-
+    	
         Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
               .stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
               .collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
                             LinkedHashMap::new));
-        List<Integer> recItems = new ArrayList<>(scoresMap.keySet().stream().limit(10).collect(Collectors.toList()));
-//        System.out.println("Size : " + recItems.size());
-//        for (int i=0; i<5; i++) {
-//            System.out.println("Item " + i + "has ID: " + recItems.get(i) + "has score: " + scoresMap.get(recItems.get(i)));
-//        }
+        List<Integer> recItems = 
+        		new ArrayList<>(scoresMap.keySet().stream().limit(20).collect(Collectors.toList()));
+
 
         List<Integer> rerankedList = new ArrayList<Integer>();
+        
+//        for (Integer i : recItems) {
+//        	System.out.println("RecItems "+i);
+//        }
+        	
+        
+        double[] ckl=new double[1];
+        ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
+        
+        
         rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
         recItems.remove(0);
+        
 
         while(rerankedList.size() < 5 && recItems.size() > 0) {
-            Integer bestRerankItemId = findHighestScoringItem(userProfile, rerankedList, recItems, scores);
+            Integer bestRerankItemId = findHighestScoringItem(userProfile, rerankedList, recItems, scores,ckl);
             if (!userProfile.contains(bestRerankItemId)){
-                System.out.println("Id: " + bestRerankItemId);
+  //              System.out.println("Id: " + bestRerankItemId);
                 rerankedList.add(bestRerankItemId);
                 recItems.remove(bestRerankItemId);
-                System.out.println("Reranked List size: " + rerankedList.size() + " Original List size: " + recItems.size());
+ //               System.out.println("Reranked List size: " + rerankedList.size() + " Original List size: " + recItems.size());
             }
             recItems.remove(bestRerankItemId);
         }
-
-//        if (scores==null)
-//            return rerankedList;
-// store all scores in descending order in a sorted set
-//        double recScoreSum = 0;
-//        SortedSet<ScoredThingDsc> ss = new TreeSet<ScoredThingDsc>();
-//        for(Integer id: scores.getIds()) {
-//            double s = scores.getValue(id);
-//            if (s>0) {
-//                ss.add(new ScoredThingDsc(s, id));
-//            }
-//        }
-
-
-        // save all recommended items in descending order of similarity in the list
-        // but leaving out items that are already in the user's profile
-//        for(Iterator<ScoredThingDsc> iter = ss.iterator(); iter.hasNext();)
-//        {
-//            ScoredThingDsc st = iter.next();
-//            Integer id = (Integer)st.thing;
-//            if (st.score > 0.0 && !userProfile.contains(id))
-//            {
-//                rerankedList.add(id);
-//            }
-//
+        
+//        for (Integer i : rerankedList) {
+//        	System.out.println("Rerank "+i);
 //        }
 
         return rerankedList;
     }
 
     // Updates the rerankedList with a new item each call.
-    private Integer findHighestScoringItem(Profile userProfile, List<Integer> rerankedList, List<Integer> recItems, Profile scores) {
-        Map<Integer, Double> itemWithNewScoreMap = new TreeMap<>();     // treemap helps with sorting key value pairs in ascending order.
+    private Integer findHighestScoringItem(Profile userProfile, 
+    		List<Integer> rerankedList, List<Integer> recItems, Profile scores,double[] ckl) {
+        int highestId=-1;
+        Double maxrankedScore = Double.NEGATIVE_INFINITY;
+        double maxckl = 0.0;
+        
+        // For greedy method, you only need to compute the change in the 
+        // objective when adding an item 
+        // keep a track of the previous CKL in order to find by how much
+        // the ckl term changes each time an item is added
+        
+        // Also, only need to get the maximum value - no need to sort
+        
         for (int i = 0; i < recItems.size(); i++) {
             double sI = 0, rerankedScore = 0;
-            for (int j = 0; j < rerankedList.size(); j++) {
-                sI += scores.getValue(rerankedList.get(j));     // calculates s(I) scores of movies already in reranked list.
+            sI = scores.getValue(recItems.get(i));
+            double newckl = getCKL(userProfile.getId(), rerankedList, recItems.get(i));
+            double ckldiff = newckl - ckl[0];          
+            rerankedScore = lambda*sI - (1-lambda)* (ckldiff);
+            
+            if (rerankedScore > maxrankedScore) {
+            	highestId = recItems.get(i);
+            	maxrankedScore = rerankedScore;
+            	maxckl = newckl;
             }
-            sI += scores.getValue(recItems.get(i));
-            // NEED TO CALCULATE CL SCORES FOR DIFF COMBINATIONS OF items already in re-ranked list + each other item.
-//            System.out.println("Passing item : " + recItems.get(i));
-            rerankedScore = lambda*sI - lambda * (getCKL(userProfile.getId(), rerankedList, recItems.get(i)));
-            itemWithNewScoreMap.put(recItems.get(i), rerankedScore);
         }
-
-        int highestId = itemWithNewScoreMap.keySet().stream().findFirst().get();
+        ckl[0]=maxckl;
         return highestId;
+        
     }
     
 	// associated with each item in the system, map<itemId, map<genre, probability> >
