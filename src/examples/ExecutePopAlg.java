@@ -31,8 +31,8 @@ public class ExecutePopAlg {
 
 		Integer[] userIds = (Integer[])reader.getUserIds().toArray(new Integer[reader.getUserIds().size()]);
 
-		// Print recommendation for 10 random users
-		Evaluator eval = new Evaluator(alg, reader,k,500);
+		// Print recommendation for 10 random users, M temp added
+		Evaluator eval = new Evaluator(alg, reader,k,500, "M");
 		
 		Random numGen = new Random();
 		

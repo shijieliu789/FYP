@@ -80,7 +80,7 @@ public class RerankingExample {
 //			CalibrationReranker(lambda)
 			
 			// Evaluate Recommender
-			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers);
+			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers, "M");
 			double [] p = eval.aggregratePerformance(perfs);
 					
 			System.out.println(fmt.format(lambda)+", "+N + ", " +

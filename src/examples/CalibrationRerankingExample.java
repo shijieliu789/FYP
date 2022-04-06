@@ -22,7 +22,7 @@ public class CalibrationRerankingExample {
 	{
 		// set the path of the dataset
 		String folder = "datasets";
-		String dataset = folder + File.separator + "ml20m";
+		String dataset = folder + File.separator + "ml100k";
 		// set the path and filename of the output file ...
 
 
@@ -63,14 +63,14 @@ public class CalibrationRerankingExample {
 		TestPerfInterface[] perfs =
 			{new Precision(), new Recall()};
 		System.out.println("L,   N,   Prec,   Recall");
-		for (double lambda=0.0;lambda<=1.0;lambda+=1.0) {
+		for (double lambda=0.0;lambda<=1.0;lambda+=0.1) {
 
 			RerankingRecommender rerankalg =
 					new RerankingRecommender(reader, alg,
 							new CalibrationReranker(reader,lambda)); // replace with calibrationReranker
 
 			// Evaluate Recommender
-			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers);
+			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers,"M");
 			double [] p = eval.aggregratePerformance(perfs);
 
 			System.out.println(fmt.format(lambda)+", "+N + ", " +

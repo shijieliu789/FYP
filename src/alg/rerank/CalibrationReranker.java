@@ -17,10 +17,10 @@ public class CalibrationReranker implements Reranker
     double lambda;
     DatasetReader reader;
     Map<Integer, Map<String, Double> > pi = new HashMap<>();
-    
-    
-    
-    
+
+
+
+
     // when instantiated it should generate the calibration scores and store them.
     public CalibrationReranker(DatasetReader reader, double lambda)
     {
@@ -33,92 +33,78 @@ public class CalibrationReranker implements Reranker
     // !!!
     public List<Integer> rerank(Profile userProfile,Profile scores)
     {
-    	
-    	System.out.println("User: "+userProfile.getId());
-    	System.out.println("---------------------");
-    	
-    // create a list to store recommendations
 
-        //.entrySet().stream()
-        //            .sorted((o1, o2) -> o2.getValue() - o1.getValue())
-        //            .limit(10)
-        //            .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-
-        // sorts scores map and takes first 10 values
-    	
-        Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
-              .stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-              .collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
-                            LinkedHashMap::new));
-        List<Integer> recItems = 
-        		new ArrayList<>(scoresMap.keySet().stream().limit(20).collect(Collectors.toList()));
+		// create a list to store recommendations
 
 
-        List<Integer> rerankedList = new ArrayList<Integer>();
-        
-//        for (Integer i : recItems) {
-//        	System.out.println("RecItems "+i);
-//        }
-        	
-        
-        double[] ckl=new double[1];
-        ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
-        
-        
+		// sorts scores map and takes first 10 values
+
+		Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
+				.stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+				.collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
+						LinkedHashMap::new));
+		List<Integer> recItems =
+				new ArrayList<>(scoresMap.keySet().stream().limit(20).collect(Collectors.toList()));
+
+		List<Integer> rerankedList = new ArrayList<Integer>();
+
         rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
         recItems.remove(0);
-        
+
+		double[] ckl=new double[1];
+		ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
+
 
         while(rerankedList.size() < 5 && recItems.size() > 0) {
             Integer bestRerankItemId = findHighestScoringItem(userProfile, rerankedList, recItems, scores,ckl);
             if (!userProfile.contains(bestRerankItemId)){
-  //              System.out.println("Id: " + bestRerankItemId);
+//                System.out.println("Highest scoring Id this round: " + bestRerankItemId);
                 rerankedList.add(bestRerankItemId);
-                recItems.remove(bestRerankItemId);
- //               System.out.println("Reranked List size: " + rerankedList.size() + " Original List size: " + recItems.size());
             }
             recItems.remove(bestRerankItemId);
         }
-        
+
 //        for (Integer i : rerankedList) {
 //        	System.out.println("Rerank "+i);
 //        }
 
-        return rerankedList;
-    }
+		return rerankedList;
+	}
 
     // Updates the rerankedList with a new item each call.
-    private Integer findHighestScoringItem(Profile userProfile, 
+    private Integer findHighestScoringItem(Profile userProfile,
     		List<Integer> rerankedList, List<Integer> recItems, Profile scores,double[] ckl) {
         int highestId=-1;
         Double maxrankedScore = Double.NEGATIVE_INFINITY;
         double maxckl = 0.0;
-        
-        // For greedy method, you only need to compute the change in the 
-        // objective when adding an item 
+
+		ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
+//		System.out.println("initial CKL for round " + rerankedList.size() + " : " + ckl[0] );
+
+        // For greedy method, you only need to compute the change in the
+        // objective when adding an item
         // keep a track of the previous CKL in order to find by how much
         // the ckl term changes each time an item is added
-        
-        // Also, only need to get the maximum value - no need to sort
-        
+
+		// Also, only need to get the maximum value - no need to sort
+
         for (int i = 0; i < recItems.size(); i++) {
             double sI = 0, rerankedScore = 0;
             sI = scores.getValue(recItems.get(i));
             double newckl = getCKL(userProfile.getId(), rerankedList, recItems.get(i));
-            double ckldiff = newckl - ckl[0];          
+            double ckldiff = newckl - ckl[0];
             rerankedScore = lambda*sI - (1-lambda)* (ckldiff);
-            
-            if (rerankedScore > maxrankedScore) {
-            	highestId = recItems.get(i);
-            	maxrankedScore = rerankedScore;
-            	maxckl = newckl;
-            }
+
+			if (rerankedScore > maxrankedScore) {
+				highestId = recItems.get(i);
+				maxrankedScore = rerankedScore;
+				maxckl = newckl;
+			}
         }
         ckl[0]=maxckl;
         return highestId;
-        
     }
-    
+
 	// associated with each item in the system, map<itemId, map<genre, probability> >
 	public Map<Integer, Map<String, Double>> getItemGenreProbabilityMap(DatasetReader reader, Map<Integer, Map<String, Double>> pi) {
 		for (Integer itemId : reader.getItemIds()){		// loops over all movies
@@ -141,10 +127,6 @@ public class CalibrationReranker implements Reranker
 		return pi;
 	}
 
-    
-    
-    
-    
 //	 Get the KL score for each subset combination of items.
 	private double getCKL(Integer userId, List<Integer> rerankedList, Integer itemId) {
 		pi = getItemGenreProbabilityMap(reader, pi);
@@ -161,16 +143,15 @@ public class CalibrationReranker implements Reranker
 			p = pu_g.getOrDefault(genre, 0.0);
 			q = qu_g.getOrDefault(genre, 0.0);
 			if (q == 0) {
-				double pgu = (p == 0) ? 0 : pu_g.get(genre);
-				q = deltaQ2(pgu);
+				q = deltaQ2(q, p);
 			}
 			klScore += (p * (Math.log(p/q)) > 0 || p * (Math.log(p/q)) < 0) ? (p * (Math.log(p/q))) : 0;
 		}
 		rerankedList.remove(itemId);
 		return klScore;
 	}
-	
-	
+
+
 	// Gets probabilities p(g|u) of movies played by each user in the past.
 	private Map<Integer, Map<String, Double>> getPUMap(DatasetReader reader, Map<Integer, Map<String, Double>> pi) {
 		Map<Integer, Map<String, Double>> pu = new HashMap<>();
@@ -203,7 +184,7 @@ public class CalibrationReranker implements Reranker
 		}
 		return qu;
 	}
-	
+
 	private void updateUserInteractedGenreMap(Profile uProf, Map<Integer, Map<String, Double> > pi, Map<String, Double> usergenreMap) {
 		// Loop over the items that user has interacted with
 		// .getIds() returns the dataMap.keySet() -- all itemIds
@@ -254,33 +235,32 @@ public class CalibrationReranker implements Reranker
 		}
 		return userRecGenreMap;
 	}
-	
-	
+
+
 	// By right this should be a method attached to the DatasetReader
 	// class - implemented as a static here simply to avoid messing with
 	// the DatasetReader class
-	
+
 	public static Set<String> getGenres(DatasetReader reader)
 	{
 		Set<String> s = new HashSet<>();
 		for (Integer itemId : reader.getItemIds()) {
-			
+
 			Item item = reader.getItem(itemId);
-			
+
 			for (String g : item.getGenres()) {
 				s.add(g);
 			}
 		}
 		return s;
 	}
-	
-	private double deltaQ2(double pgu) {
+
+	private double deltaQ2(double qgu, double pgu) {
 		double deltaq;
 		double alpha = 0.01;
-		deltaq = alpha * pgu;
+		deltaq = (1 - alpha) * qgu + alpha * pgu;
 
 		return deltaq;
 	}
 }
-
 

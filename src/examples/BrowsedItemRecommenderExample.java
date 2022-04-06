@@ -102,7 +102,8 @@ public class BrowsedItemRecommenderExample {
 						+" "+reader.getItems().get(browsedItemId).getName());
 				BrowsedItemRecommender alg = new 
 						BrowsedItemRecommender(reader,browsedItemId,simMap);
-				Evaluator eval = new Evaluator(alg,reader,k,nusers);
+				//temporarily added "M" to make reranker work
+				Evaluator eval = new Evaluator(alg,reader,k,nusers, "M");
 				eval.printRecs(userIds[r]);
 				
 				// only use one item from the user's profile

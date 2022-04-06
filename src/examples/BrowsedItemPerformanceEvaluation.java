@@ -103,7 +103,8 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		Recommender alg = new BrowsedItemRecommender(reader,popItem,simMap);
-		Evaluator eval = new Evaluator(alg, reader, k,nusers,seed);
+		//Temporarily added "M" as the param to make reranker work
+		Evaluator eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +
@@ -130,7 +131,7 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		alg = new BrowsedItemRecommender(reader,leastPopItem,simMap);
-		eval = new Evaluator(alg, reader, k,nusers,seed);
+		eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +
@@ -162,7 +163,7 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		alg = new BrowsedItemRecommender(reader,mostGenomesItem,simMap);
-		eval = new Evaluator(alg, reader, k,nusers,seed);
+		eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +
@@ -194,7 +195,7 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		alg = new BrowsedItemRecommender(reader,leastGenomesItem,simMap);
-		eval = new Evaluator(alg, reader, k,nusers,seed);
+		eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +
@@ -221,7 +222,7 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		alg = new BrowsedItemRecommender(reader,mostGenresItem,simMap);
-		eval = new Evaluator(alg, reader, k,nusers,seed);
+		eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +
@@ -248,7 +249,7 @@ public class BrowsedItemPerformanceEvaluation {
 		System.out.println("k,coverage,popularity,precision,recall");
 
 		alg = new BrowsedItemRecommender(reader,leastGenresItem,simMap);
-		eval = new Evaluator(alg, reader, k,nusers,seed);
+		eval = new Evaluator(alg, reader, k,nusers,seed, "M");
 		// display results for the recommender algorithm
 		System.out.println(k + "," +  
 				fmt.format(eval.getRecommendationCoverage()) + "," +

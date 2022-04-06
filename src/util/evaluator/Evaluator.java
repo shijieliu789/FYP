@@ -12,11 +12,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 import util.Item;
+import util.User;
 import util.reader.DatasetReader;
 import java.util.Random;
 
-public class Evaluator 
-{		
+public class Evaluator
+{
 	private RecAlg alg; //  recommender algorithm
 	private DatasetReader reader; // dataset reader
 	private int k; // the number of recommendations to be made
@@ -30,45 +31,68 @@ public class Evaluator
 	 * @param k - the number of recommendations to be made
 	 */
 	public Evaluator(final RecAlg alg, final DatasetReader reader, final int k,
-			final Integer numUsers)
+					 final Integer numUsers, String gender)
 	{
 		this.alg = alg;
 		this.reader = reader;
 		this.k = k;
 		this.seed = 1234;
-		selectUserGroup(numUsers);
-		
-		
+		selectUserGroup(reader, numUsers, gender);
 	}
 	public Evaluator(final RecAlg alg, final DatasetReader reader, final int k,
-			final Integer numUsers, final int seed)
+					 final Integer numUsers, final int seed, String gender)
 	{
 		this.alg = alg;
 		this.reader = reader;
 		this.k = k;
 		this.seed = seed;
-		selectUserGroup(numUsers);
-		
-		
+		selectUserGroup(reader, numUsers,gender);
 	}
-	
-	private void selectUserGroup(Integer numUsers) {
-		
+	//Make evaluator take
+
+	//rather then taking in reader.getUserID, make functions to take in all males and females id
+	// need a loop to check is user male or females.
+
+	private void selectUserGroup(DatasetReader reader, Integer numUsers,
+								 String gender) {
+
+		List<Integer> userGroupList = new ArrayList<>();
 		List<Integer> userIds
-			= new ArrayList<Integer>(reader.getUserIds());
-		
+				= new ArrayList<>(reader.getUserIds());
+
 		java.util.Collections.shuffle(userIds, new Random(seed));
-		
+
 		numUsers = Math.min(numUsers,userIds.size());
-		
-		userGroup = userIds.subList(0, numUsers).
-				toArray(new Integer[numUsers]);
-		
-		
+
+
+		for (Integer userId : userIds) {
+			User u = reader.getUser(userId);
+
+			if (u.getFeatureValue("Gender").equals(gender)) {
+				userGroupList.add(userId);
+			}
+
+//			for (String s : u.getFeatures()) {
+//				if (s.equals("Gender")) {
+//					String g = u.getFeatureValue(s);
+//
+//					if (g.equals(gender)) {
+//						System.out.println("User " + userId);
+//						userGroupList.add(userId);
+//					}
+//				}
+//			}
+		}
+		userGroup = userGroupList.subList(0, numUsers).toArray(new Integer[numUsers]);
+
+
+//		userGroup = userIds.subList(0, numUsers).
+//				toArray(new Integer[numUsers]);
 	}
 
+
 	/**
-	 * @return the percentage of items in the dataset which appear at 
+	 * @return the percentage of items in the dataset which appear at
 	 * least once in the top-k recommendations made over all target users
 	 */
 	public double getRecommendationCoverage() {
@@ -79,13 +103,13 @@ public class Evaluator
 			for (int i = 0; i < recs.size() && i < k; i++)
 				allRecs.add(recs.get(i));
 		}
-		
+
 		return (nitems > 0) ? allRecs.size() * 1.0 / (nitems) : 0;
 	}
-	
+
 	/**
 	 * The percentage of items in the system
-	 * which are capable of being recommended (i.e. those items which will be ranked 
+	 * which are capable of being recommended (i.e. those items which will be ranked
 	 * by the recsys algorithm).
 	 * The value returned is the average percentage over all target users.
 	 */
@@ -106,11 +130,11 @@ public class Evaluator
 	}
 
 	/**
-	 * The popularity of a recommended movie is given by the percentage 
+	 * The popularity of a recommended movie is given by the percentage
 	 * of users in the system which have rated the movie.
-	 * The popularity of the top-k recommendations 
-	 * made is calculated by taking the average of the popularity over each 
-	 * recommended movie. 
+	 * The popularity of the top-k recommendations
+	 * made is calculated by taking the average of the popularity over each
+	 * recommended movie.
 	 * The value returned is the average popularity over all target users.
 	 */
 	public double getRecommendationPopularity() {
@@ -135,11 +159,11 @@ public class Evaluator
 	}
 
 	/**
-	 * The mean of 
+	 * The mean of
 	 * the ratings the item received in the training set.
-	 * The relevance of the top-k recommendations 
-	 * made is calculated by taking the average of the mean rating over each 
-	 * recommended item. 
+	 * The relevance of the top-k recommendations
+	 * made is calculated by taking the average of the mean rating over each
+	 * recommended item.
 	 * The value returned is the average relevance over all target users.
 	 */
 	public double getRecommendationAverageRating() {
@@ -167,7 +191,7 @@ public class Evaluator
 
 	/**
 	 * prints to standard output the top-k reommendations made for an item
-	 * @param item - the target item
+	 * //@param item - the target item
 	 */
 	public void printRecs(Integer userid) {
 		Map<Integer,Item> items = reader.getItems();
@@ -206,15 +230,15 @@ public class Evaluator
 
 		return (nusers>0) ? sumCommon * 1.0 / nusers : 0;
 	}
-	
+
 	public double aggregratePerformance(TestPerfInterface perfunc) {
-		Map<Integer,Profile> testProfileMap = reader.getTestProfileMap();	
+		Map<Integer,Profile> testProfileMap = reader.getTestProfileMap();
 		double perf = 0;
 		int numUsers = 0;
 		for (Integer userId: userGroup) {
 			Profile p = testProfileMap.get(userId);
 			List<Integer> recs = alg.getRecommendations(userId);
-			
+
 			if (p != null) {
 				Double userperf = perfunc.testperf(userId,p,recs,k);
 				if (userperf != null) {
@@ -226,9 +250,9 @@ public class Evaluator
 		perf = (numUsers>0) ? perf/numUsers : 0.0;
 		return perf;
 	}
-	
+
 	public double[] aggregratePerformance(TestPerfInterface[] perfuncs) {
-		Map<Integer,Profile> testProfileMap = reader.getTestProfileMap();	
+		Map<Integer,Profile> testProfileMap = reader.getTestProfileMap();
 		double[] perfs = new double[perfuncs.length];
 		int[] numUsers = new int[perfuncs.length];
 		for (int i=0;i<perfuncs.length;i++) {perfs[i]=0.0;numUsers[i]=0;};
@@ -247,11 +271,11 @@ public class Evaluator
 				}
 			}
 		}
-		for (int i=0;i<perfuncs.length;i++) 
+		for (int i=0;i<perfuncs.length;i++)
 			perfs[i] = (numUsers[i]>0) ? perfs[i]/numUsers[i] : 0.0;
 		return perfs;
 	}
-	
+
 
 
 }
