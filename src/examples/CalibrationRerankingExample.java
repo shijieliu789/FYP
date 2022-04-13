@@ -1,6 +1,7 @@
 package examples;
 
 import alg.RerankingRecommender;
+import alg.rerank.Reranker;
 import alg.ib.IBNNRecommender;
 import alg.rerank.CalibrationReranker;
 import alg.rerank.DiversityReranker;
@@ -13,7 +14,7 @@ import similarity.metric.item.GenreMetric;
 import util.Item;
 import util.evaluator.*;
 import util.reader.DatasetReader;
-
+import java.util.Map;
 import java.io.File;
 import java.text.DecimalFormat;
 
@@ -34,7 +35,7 @@ public class CalibrationRerankingExample {
 
 		////////////////////////////////////////////////////////
 		long seed = 0; // seed for random number generator
-		int N = 5; // the number of recommendations to be made for each target user
+		int N = 10; // the number of recommendations to be made for each target user
 		int nusers = 20; // number of users to evaluate
 
 		if (args.length>0)
@@ -44,7 +45,7 @@ public class CalibrationRerankingExample {
 		if (args.length>2)
 			nusers = Integer.parseInt(args[2]);
 
-		DecimalFormat fmt = new DecimalFormat("#.#####");
+		DecimalFormat fmt = new DecimalFormat("#.########");
 
 		////////////////////////////////////////////////////////
 		// SimilarityMetric metric = new GenreMetric(reader);
@@ -65,9 +66,11 @@ public class CalibrationRerankingExample {
 		System.out.println("L,   N,   Prec,   Recall");
 		for (double lambda=0.0;lambda<=1.0;lambda+=0.1) {
 
+			CalibrationReranker reranker = new CalibrationReranker(reader,lambda);
+
 			RerankingRecommender rerankalg =
 					new RerankingRecommender(reader, alg,
-							new CalibrationReranker(reader,lambda)); // replace with calibrationReranker
+							reranker); // replace with calibrationReranker
 
 			// Evaluate Recommender
 			Evaluator eval = new Evaluator(rerankalg,reader,N,nusers,"M");
@@ -76,6 +79,11 @@ public class CalibrationRerankingExample {
 			System.out.println(fmt.format(lambda)+", "+N + ", " +
 					fmt.format(p[0])+", "+
 					fmt.format(p[1])+", ");
+			
+			Map<Integer, Double> cklvals = reranker.getCKLvals();
+			for (Integer userId : cklvals.keySet() ) {
+				System.out.println(userId+" "+cklvals.get(userId));
+			}
 		}
 
 	}

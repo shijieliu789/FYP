@@ -5,16 +5,17 @@
 package util.evaluator;
 import alg.RecAlg;
 import profile.Profile;
-
-import java.util.HashSet;
+import util.reader.DatasetReader;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.HashSet;
+
+
 import util.Item;
 import util.User;
-import util.reader.DatasetReader;
-import java.util.Random;
 
 public class Evaluator
 {
@@ -31,7 +32,7 @@ public class Evaluator
 	 * @param k - the number of recommendations to be made
 	 */
 	public Evaluator(final RecAlg alg, final DatasetReader reader, final int k,
-					 final Integer numUsers, String gender)
+			final Integer numUsers, final String gender)
 	{
 		this.alg = alg;
 		this.reader = reader;
@@ -83,6 +84,7 @@ public class Evaluator
 //				}
 //			}
 		}
+		numUsers = Math.min(numUsers,userGroupList.size());
 		userGroup = userGroupList.subList(0, numUsers).toArray(new Integer[numUsers]);
 
 

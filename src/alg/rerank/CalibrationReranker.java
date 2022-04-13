@@ -13,7 +13,7 @@ import util.reader.DatasetReader;
 
 public class CalibrationReranker implements Reranker
 {
-//    Map<Integer, Double> userCalibrationScoreMap;
+    Map<Integer, Double> userCalibrationScoreMap;
     double lambda;
     DatasetReader reader;
     Map<Integer, Map<String, Double> > pi = new HashMap<>();
@@ -28,31 +28,56 @@ public class CalibrationReranker implements Reranker
 //        this.userCalibrationScoreMap = CalibrationExample.getCalibrationMap(reader);
         this.lambda = lambda;
         this.reader = reader;
+        this.userCalibrationScoreMap = new HashMap<Integer, Double>();
+        
+    }
+    
+    public Map<Integer, Double> getCKLvals()
+    {
+    	return userCalibrationScoreMap;
     }
 
     // !!!
     public List<Integer> rerank(Profile userProfile,Profile scores)
-    {
-
+    {   	
+    	int userId = userProfile.getId();  
 		// create a list to store recommendations
 
 
 		// sorts scores map and takes first 10 values
 
-		Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
-				.stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-				.collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
-						LinkedHashMap::new));
-		List<Integer> recItems =
-				new ArrayList<>(scoresMap.keySet().stream().limit(20).collect(Collectors.toList()));
 
-		List<Integer> rerankedList = new ArrayList<Integer>();
+        Map<Integer, Double> scoresMap = scores.getDataMap().entrySet()
+              .stream().sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+              .collect( toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2,
+                            LinkedHashMap::new));
+        List<Integer> recItems = 
+        		new ArrayList<>(scoresMap.keySet().stream().limit(20).collect(Collectors.toList()));
 
+
+        List<Integer> rerankedList = new ArrayList<Integer>();
+        
+//        for (Integer i : recItems) {
+//        	System.out.println("RecItems "+i);
+//        }
+        double maxS = 0.0;
+        for (Integer i : scores.getIds()) {
+        	if (Math.abs(scores.getValue(i))>maxS)
+        		maxS = Math.abs(scores.getValue(i));
+        }
+        Profile s = new Profile(0);
+        for (Integer i : scores.getIds()) {
+        	s.addValue(i, scores.getValue(i)/maxS);
+        }
+        scores = s;
+        	
+        
+        double[] ckl=new double[1];
+        ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
+        
+        
         rerankedList.add(recItems.get(0));   // adds top recommended item to new list.
         recItems.remove(0);
-
-		double[] ckl=new double[1];
-		ckl[0] = getCKL(userProfile.getId(), rerankedList, recItems.get(0));
 
 
         while(rerankedList.size() < 5 && recItems.size() > 0) {
@@ -64,12 +89,9 @@ public class CalibrationReranker implements Reranker
             recItems.remove(bestRerankItemId);
         }
 
-//        for (Integer i : rerankedList) {
-//        	System.out.println("Rerank "+i);
-//        }
-
-		return rerankedList;
-	}
+        userCalibrationScoreMap.put(userId, ckl[0]);
+        return rerankedList;
+    }
 
     // Updates the rerankedList with a new item each call.
     private Integer findHighestScoringItem(Profile userProfile,
