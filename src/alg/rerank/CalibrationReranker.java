@@ -114,6 +114,7 @@ public class CalibrationReranker implements Reranker
             double sI = 0, rerankedScore = 0;
             sI = scores.getValue(recItems.get(i));
             double newckl = getCKL(userProfile.getId(), rerankedList, recItems.get(i));
+<<<<<<< HEAD
             double ckldiff = newckl - ckl[0];
             rerankedScore = lambda*sI - (1-lambda)* (ckldiff);
 
@@ -122,6 +123,17 @@ public class CalibrationReranker implements Reranker
 				maxrankedScore = rerankedScore;
 				maxckl = newckl;
 			}
+=======
+            double ckldiff = newckl - ckl[0];          
+            rerankedScore = lambda*sI  - (1-lambda)* (ckldiff);
+//            System.out.println(lambda+"\t"+sI+"\t"+ckldiff+"\t"+rerankedScore);
+            
+            if (rerankedScore > maxrankedScore) {
+            	highestId = recItems.get(i);
+            	maxrankedScore = rerankedScore;
+            	maxckl = newckl;
+            }
+>>>>>>> 3c79082 (changes)
         }
         ckl[0]=maxckl;
         return highestId;
