@@ -35,8 +35,8 @@ public class CalibrationRerankingExample {
 
 		////////////////////////////////////////////////////////
 		long seed = 0; // seed for random number generator
-		int N = 10; // the number of recommendations to be made for each target user
-		int nusers = 20; // number of users to evaluate
+		int N = 5; // the number of recommendations to be made for each target user
+		int nusers = 100; // number of users to evaluate
 
 		if (args.length>0)
 			seed = Integer.parseInt(args[0]);
@@ -64,7 +64,7 @@ public class CalibrationRerankingExample {
 		TestPerfInterface[] perfs =
 			{new Precision(), new Recall()};
 		System.out.println("L,   N,   Prec,   Recall");
-		for (double lambda=0.0;lambda<=1.0;lambda+=0.1) {
+		for (double lambda=0.0;lambda<=1.0;lambda+=0.5) {
 
 			CalibrationReranker reranker = new CalibrationReranker(reader,lambda);
 
