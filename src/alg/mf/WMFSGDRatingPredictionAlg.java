@@ -1,7 +1,10 @@
 package alg.mf;
 
 import java.util.Random;
-
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.HashMap;
 
 import profile.Profile;
 import util.reader.DatasetReader;
@@ -9,6 +12,10 @@ import util.reader.DatasetReader;
 public class WMFSGDRatingPredictionAlg 
 	extends MatrixFactorisationRatingPrediction	{
 
+	
+	private Map<Integer,Integer> invUserRow;
+	private Map<Integer,Integer> invItemRow;
+	private int[] pool;
 	
 	// parameter for confidence value
 	private Double alpha;
@@ -52,18 +59,28 @@ public class WMFSGDRatingPredictionAlg
 		}
 		trainingData = new TrainingTriple[ntrans];
 		
-		// For convenience, put the confidence value into the rating
-		// field of the TrainingTriple. 
 		ntrans=0;
 		for (Integer userId : reader.getUserIds() ) {
 			Profile pu = reader.getUserProfiles().get(userId);
-			for (Integer itemId : pu.getIds()) {
-				// confidence = 1 + alpha*rui, where rui is the rating
+			for (Integer itemId : pu.getIds()) {		
 				trainingData[ntrans] = 
 						new TrainingTriple(userId,itemId,
 								(1 + alpha*pu.getValue(itemId)));
 				ntrans = ntrans+1;
 			}
+		}
+		invUserRow = new HashMap<Integer,Integer>();
+		invItemRow = new HashMap<Integer,Integer>();
+		for (int u : userRow.keySet()) {
+			invUserRow.put(userRow.get(u),u);
+		}
+		for (int i : itemRow.keySet()) {
+			invItemRow.put(itemRow.get(i),i);
+		}
+		
+		pool = new int[Q.length];
+		for (int j=0;j<Q.length;j++) {
+			pool[j]=j;
 		}
 		
 		
@@ -73,7 +90,6 @@ public class WMFSGDRatingPredictionAlg
 	{
 		h = 1;
 		alpha = 2.0;
-		// The learning rate needs to be small for WMF - around the value shown here
 		learningRate = 0.0001;
 		numberPasses = 100;
 		regWeightP = 0.5;
@@ -113,16 +129,17 @@ public class WMFSGDRatingPredictionAlg
 		initialise(userBias);
 		globalBias = numGen.nextDouble();
 
-		// How often to report the RMSE on the console as the optimisation
-		// proceeds
-		int reportfreq = (numReports>0)? (int)Math.ceil(numberPasses*1.0/numReports):0;
+		int reportfreq = numReports>0 ? 
+				(int)Math.ceil(numberPasses*1.0/numReports):0;
 
 		for (int iter=0;iter<numberPasses;iter++) {
 			
+//			System.out.println(
+//					" Original Size "+trainingData.length);
+			
 			TrainingTriple[] augmentedTrainingData = 
 					addNegativeSamples(trainingData,Q.length);
-			//System.out.println("Augmented Size="+augmentedTrainingData.length+
-			//		" Original Size "+trainingData.length);
+//			System.out.println("Augmented Size="+augmentedTrainingData.length);
 			
 			int ntrans = augmentedTrainingData.length;
 
@@ -137,47 +154,42 @@ public class WMFSGDRatingPredictionAlg
 				
 				
 				
-				// Extract userId, itemId
+				// Extract userId, itemId, rating and confidence
 				Integer userId = sample.user;
 				Integer itemId = sample.item;
-				
-				
-				// The code below  NEEDS TO CHANGE
-				// Currently it is written for the standard SGD MF algorithm
-				// For WMF, we need to
-				// Change the updates to take the confidence term into account.
-				// Note, from the constructor, we have put the confidence cui in 
-				// sample.rating, rather than rui. 
-				
-				
-				Double rui = sample.rating;
+				Double cui = sample.rating;
+				Double rui = (cui>1.0) ? 1.0 : 0.0;
 				
 
 				int u = userRow.get(userId);
 				int i = itemRow.get(itemId);
 				Double rhatui = getPrediction(userId,itemId);
+				//System.out.printf("(%d,%d,%f,%f)\n",u,i,rui,cui);
+				if (rui==Double.NaN || cui==Double.NaN)
+					System.out.printf("(%d,%d,%f,%f)\n",u,i,rui,cui);
+				
 
-				L = L+(rhatui-rui)*(rhatui-rui);
+				L = L+cui*(rhatui-rui)*(rhatui-rui);
 
 				for (int k=0;k<K;k++) {
 
 					P[u][k] = P[u][k] 
 							- learningRate *
-							( (rhatui - rui)*Q[i][k] + regWeightP*P[u][k]);
+							( cui*(rhatui - rui)*Q[i][k] + regWeightP*P[u][k]);
 					Q[i][k] = Q[i][k] 
 							- learningRate *
-							( (rhatui - rui)*P[u][k] + regWeightQ*Q[i][k]);
+							( cui*(rhatui - rui)*P[u][k] + regWeightQ*Q[i][k]);
 
 				}
 				itemBias[i] = itemBias[i]
 						-learningRate *
-						((rhatui - rui) + regWeightItemBias*itemBias[i]);
+						(cui*(rhatui - rui) + regWeightItemBias*itemBias[i]);
 
 				userBias[u] = userBias[u]
 						-learningRate *
-						((rhatui - rui) + regWeightUserBias*userBias[u]);
+						(cui*(rhatui - rui) + regWeightUserBias*userBias[u]);
 
-				globalBias = globalBias - learningRate*(rhatui-rui);
+				globalBias = globalBias - learningRate*cui*(rhatui-rui);
 			}
 			if (reportfreq>0 && iter % reportfreq == 0)
 				System.out.printf("Iter=%d \tRMSE=%f\n",iter,Math.sqrt(L/ntrans));
@@ -186,22 +198,70 @@ public class WMFSGDRatingPredictionAlg
 	}
 	
 	TrainingTriple[] addNegativeSamples(TrainingTriple[] trainingSet, int nitems) {
-		// COMPLETE THIS FUNCTION - 
-		// It should return the training set augmented so that for every rating
-		// in the original training set, h negative samples are added
-		
-		// That is, for each (userId,itemId) pair for which a positive rating
-		// exists in the trainingSet, select, at random, h new (userId,negId) pairs, and set 
-		// their rating value to 0.  The pair (userId,negId) should not be 
-		// already in the training set.
-		
-		// Note, that for some users, their profiles will be too full to add h extra
-		// negative items per positive item.  Hence the new training set will not be 
-		// exactly (h+1) times larger than the old one
-		
-		// return the augmented training set
-		return trainingSet;
+		int nusers=reader.getUserIds().size();
+		int[] degu = new int[nusers];
+		for (int u=0;u<nusers;u++)
+			degu[u]=0;
+		Map<Entry<Integer,Integer>, Double> dataLookUp= new HashMap<>();
+		for (int i=0;i<trainingSet.length;i++) {
+			Integer u=userRow.get(trainingSet[i].user);
+			degu[u]++;
+		}
+		int ntrans=0;
+		for (Integer u=0;u<nusers;u++)
+			if (degu[u]*(1+h)>=nitems) {
+				for (Integer i=0;i<nitems;i++) {
+					dataLookUp.put(new SimpleEntry<>(u,i),1.0);
+				}
+				degu[u]= nitems;
+				ntrans = ntrans+nitems;
+			}
+
+
+		for (int i=0;i<trainingSet.length;i++) {
+			dataLookUp.put(new SimpleEntry<>(
+					userRow.get(trainingSet[i].user),
+					itemRow.get(trainingSet[i].item)), trainingSet[i].rating);	
+			if (degu[userRow.get(trainingSet[i].user)]!=nitems)
+				ntrans++;
+		} 
+
+
+
+		for (int j=0;j<trainingSet.length;j++) {
+			Integer u = userRow.get(trainingSet[j].user);
+			if (degu[u] != nitems) {
+				for (int t = 0; t<h; t++) {
+
+					Integer poolsize = nitems;
+					Integer negi;
+					Entry<Integer,Integer> negEntry;
+					do  {
+						Integer n = numGen.nextInt(poolsize);
+						negi = pool[n];
+						pool[n] = pool[poolsize-1];
+						pool[poolsize-1] = negi;
+						poolsize--;
+						negEntry = new SimpleEntry<>(u,negi);
+
+					} while (poolsize>0 && dataLookUp.get(negEntry) != null);
+					if (dataLookUp.get(negEntry)== null) {
+						dataLookUp.put(negEntry,1.0);
+						ntrans++;
+					}
+				}
+			}
+		}
+		TrainingTriple[] newTrainingData = new TrainingTriple[ntrans];
+		int t = 0;
+		for (Entry<Integer, Integer> key : dataLookUp.keySet()) {
+			newTrainingData[t++] = new TrainingTriple(
+					invUserRow.get(key.getKey()),
+					invItemRow.get(key.getValue()),
+					dataLookUp.get(key));		
+		}
+		return newTrainingData;
+
 	}
-	
 }
 
